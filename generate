@@ -1,0 +1,76 @@
+#!/usr/local/bin/python3
+
+import sys
+import time
+import signal
+import whois
+import getopt
+import string
+
+version = '0.1'
+verbosity = 0
+minlength = 4
+maxlength = 8
+tlds = []
+defaultTLDs = ['net', 'com', 'io', 'ly', 'to', 'ro', 'us', 'guru', 'info', 'mobi', 'one', 'pro', 'xyz', 'tel', 'link']
+# TBD: 'ing', 'foo', 'fi'
+
+opts, args = getopt.getopt(sys.argv[1:], 'm:M:vVt:', ['min=', 'max=', 'tld=', 'verbose', 'version'])
+
+for opt, arg in opts:
+    if opt in ('-m', '--min'):
+        minlength = int(arg)
+    elif opt in ('-M', '--max'):
+        maxlength = int(arg)
+    elif opt in ('-t', '--tld'):
+        tlds.append(arg)
+    elif opt in ('-v', '--verbose'):
+        verbosity += 1
+    elif opt in ('-V', '--version'):
+        print("`generate` version ", version)
+        quit()
+
+if len(tlds) == 0:
+    tlds = defaultTLDs
+
+def handler(signum, frame):
+    quit()
+
+signal.signal(signal.SIGINT, handler)
+signal.signal(signal.SIGTERM, handler)
+
+def generateDomainFrom(word):
+    if (len(word) < minlength or len(word) > maxlength):
+        return
+
+    words = [word]
+    # If word ends in "-er" get rid of the "e" to try something trendy
+    if word[-2:] == "er":
+        words.append(word[:-2]+"r")
+
+    for tld in tlds:
+        try:
+            w = whois.whois (word + '.' + tld)
+            if type(w.expiration_date) is list:
+                status = w.expiration_date[0].strftime('%Y-%m-%d')
+            elif type(w.expiration_date) is str:
+                status = datetime.datetime.strptime(w.expiration_date).strftime('%Y-%m-%d')
+            else:
+                status = w.expiration_date
+        except Exception as e:
+            status = "Not found"
+        print (word + '.' + tld, status)
+    return
+
+# Check for arguments or stdin
+if len(args) > 0:
+    for word in args:
+        generateDomainFrom (word)
+else:
+    for word in sys.stdin:
+        # handle case where multiple words are white-space delimited
+        if any((s in string.whitespace) for s in word):
+            for subword in word.split():
+                generateDomainFrom (subword.strip())
+        else:
+            generateDomainFrom (word.strip())

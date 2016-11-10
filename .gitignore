@@ -1,0 +1,7 @@
+# Ignore python modules that should be installed on setup
+future
+future-*
+lib*
+past
+python_whois*
+whois
